@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin - Správa kurzu a kalendára</title>
+
+  <!-- BOOTSTRAP (CSS) -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+  />
+
+  <style>
+    .d-none { display: none !important; }
+    .max-h-200 { max-height: 200px; overflow-y: auto; }
+  </style>
+
+  <script>
+    // (Voliteľné) primitívne heslo prompt:
+    // const pass = prompt("Zadaj heslo pre admin panel:");
+    // if (pass !== "mojeHeslo123") {
+    //   document.write("Nesprávne heslo!");
+    //   throw new Error("Neoprávnený prístup do adminu.");
+    // }
+  </script>
+</head>
+<body class="bg-light">
+
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+
+      <!-- 1. KARTA: TEXT KURZU -->
+      <div class="card shadow mb-4">
+        <div class="card-body p-4">
+          <h2 class="mb-4">Upraviť text kurzu</h2>
+
+          <!-- Loader/Spinner spoločný -->
+          <div id="spinner" class="d-none mb-3 text-center">
+            <div class="spinner-border" role="status">
+              <span class="visually-hidden">Načítavam...</span>
+            </div>
+          </div>
+
+          <!-- Aktuálny text -->
+          <div class="mb-3">
+            <label class="form-label fw-bold">Aktuálny text kurzu:</label>
+            <div
+              id="currentText"
+              class="p-2 border rounded bg-white"
+              style="min-height: 60px;"
+            >
+              Načítavam...
+            </div>
+          </div>
+
+          <!-- Textarea na úpravu -->
+          <div class="mb-3">
+            <label for="newKurzText" class="form-label fw-bold">
+              Nový text kurzu:
+            </label>
+            <textarea
+              id="newKurzText"
+              class="form-control"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <button id="saveBtnKURZ" class="btn btn-primary">
+            Uložiť text kurzu
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. KARTA: SPRÁVA UDALOSTÍ KALENDÁRA -->
+      <div class="card shadow mb-4">
+        <div class="card-body p-4">
+          <h2 class="mb-4">Správa kalendárových udalostí</h2>
+
+          <!-- Form na pridanie udalosti -->
+          <div class="mb-3">
+            <label class="form-label fw-bold">Pridať novú udalosť:</label>
+            <div class="row g-2">
+              <div class="col-2">
+                <input
+                  type="number"
+                  id="dayInput"
+                  class="form-control"
+                  placeholder="Deň"
+                />
+              </div>
+              <div class="col-2">
+                <input
+                  type="number"
+                  id="monthInput"
+                  class="form-control"
+                  placeholder="Mesiac"
+                />
+              </div>
+              <div class="col-3">
+                <input
+                  type="number"
+                  id="yearInput"
+                  class="form-control"
+                  placeholder="Rok"
+                />
+              </div>
+              <div class="col-5">
+                <input
+                  type="text"
+                  id="titleInput"
+                  class="form-control"
+                  placeholder="Popis/Title"
+                />
+              </div>
+            </div>
+            <button id="addEventBtn" class="btn btn-primary mt-2">
+              Pridať udalosť
+            </button>
+          </div>
+
+          <!-- Zoznam udalostí -->
+          <div class="mb-3">
+            <label class="form-label fw-bold">Zoznam udalostí:</label>
+            <ul id="eventsList" class="list-group max-h-200">
+              <!-- Vypĺňa JavaScript -->
+            </ul>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 3. KARTA: LOG VÝPIS -->
+      <div class="card shadow">
+        <div class="card-body p-4">
+          <h2 class="mb-4">Log výpis</h2>
+          <div
+            id="logBox"
+            class="p-2 border rounded bg-white max-h-200"
+          >
+            <small class="text-muted">Zatiaľ žiadne logy.</small>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- BOOTSTRAP JS -->
+<script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+></script>
+
+<script>
+  /* ========== POMOCNÉ FUNKCIE ========== */
+  function setLoading(isLoading) {
+    const spin = document.getElementById('spinner');
+    if (isLoading) spin.classList.remove('d-none');
+    else spin.classList.add('d-none');
+  }
+  function logMessage(msg) {
+    const lb = document.getElementById('logBox');
+    if (lb.querySelector('small')) {
+      lb.innerHTML = ''; // vymaž placeholder
+    }
+    const line = document.createElement('div');
+    line.textContent = msg;
+    lb.appendChild(line);
+  }
+
+  /* ========== 1) TEXT KURZU ========== */
+  // Načítame text hneď pri štarte
+  setLoading(true);
+  fetch('/api/getCourseText')
+    .then(r => r.json())
+    .then(data => {
+      const txt = data.value || '(prázdne)';
+      document.getElementById('currentText').innerText = txt;
+      document.getElementById('newKurzText').value = txt;
+      logMessage('Načítal sa text kurzu: ' + txt);
+    })
+    .catch(err => {
+      logMessage('Chyba pri načítaní textu kurzu: ' + err);
+    })
+    .finally(() => setLoading(false));
+
+  // Uloženie
+  document.getElementById('saveBtnKURZ').onclick = function() {
+    const newText = document.getElementById('newKurzText').value;
+    if (!newText) {
+      alert('Prosím zadaj nejaký text.');
+      return;
+    }
+    setLoading(true);
+    logMessage('Ukladám nový text kurzu: ' + newText);
+
+    fetch('/api/saveCourseText', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kurz: newText })
+    })
+      .then(r => {
+        if (!r.ok) {
+          throw new Error('Chyba pri ukladaní textu (status ' + r.status + ')');
+        }
+        logMessage('Text uložený, znovu načítavam...');
+        return fetch('/api/getCourseText');
+      })
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('currentText').innerText = data.value;
+        logMessage('Nový text kurzu: ' + data.value);
+      })
+      .catch(err => {
+        logMessage('Chyba: ' + err.message);
+        alert('Nepodarilo sa uložiť text kurzu.');
+      })
+      .finally(() => setLoading(false));
+  };
+
+  /* ========== 2) UDALOSTI KALENDÁRA ========== */
+  let events = []; // tu si držíme stiahnuté eventy z DB
+
+  // Načítame pri štarte
+  setLoading(true);
+  fetch('/api/getCalendarEvents')
+    .then(r => r.json())
+    .then(data => {
+      events = data;
+      logMessage('Načítaných udalostí: ' + data.length);
+      renderEventsList();
+    })
+    .catch(err => {
+      logMessage('Chyba pri načítaní udalostí: ' + err);
+    })
+    .finally(() => setLoading(false));
+
+  // Vykreslenie do <ul id="eventsList">
+  function renderEventsList() {
+    const list = document.getElementById('eventsList');
+    list.innerHTML = '';
+    if (!events.length) {
+      const li = document.createElement('li');
+      li.classList.add('list-group-item');
+      li.textContent = '(Zatiaľ žiadne udalosti.)';
+      list.appendChild(li);
+      return;
+    }
+    events.forEach(ev => {
+      const li = document.createElement('li');
+      li.classList.add(
+        'list-group-item',
+        'd-flex',
+        'justify-content-between',
+        'align-items-center'
+      );
+      // Mesiac: JS => 0..11, pri zobrazovaní => +1
+      li.textContent = `${ev.day}.${ev.month + 1}.${ev.year} - ${ev.title}`;
+
+      const btn = document.createElement('button');
+      btn.classList.add('btn', 'btn-sm', 'btn-danger');
+      btn.textContent = 'Zmazať';
+      btn.onclick = () => deleteEvent(ev.id);
+
+      li.appendChild(btn);
+      list.appendChild(li);
+    });
+  }
+
+  // Pridanie udalosti
+  document.getElementById('addEventBtn').onclick = function() {
+    const day = parseInt(document.getElementById('dayInput').value, 10);
+    const month = parseInt(document.getElementById('monthInput').value, 10) - 1; 
+    const year = parseInt(document.getElementById('yearInput').value, 10);
+    const title = document.getElementById('titleInput').value;
+
+    if (!day || isNaN(month) || !year || !title) {
+      alert('Vyplň Deň, Mesiac, Rok, Popis.');
+      return;
+    }
+    setLoading(true);
+    logMessage(`Pridávam udalosť: ${day}.${month+1}.${year}, ${title}`);
+
+    fetch('/api/saveCalendarEvent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ day, month, year, title })
+    })
+      .then(r => {
+        if (!r.ok) {
+          throw new Error('Chyba pri pridávaní (status ' + r.status + ')');
+        }
+        return r.json();
+      })
+      .then(resp => {
+        // Uložené v DB => doplníme do local array
+        events.push({
+          id: resp.id,
+          day, month, year, title
+        });
+        renderEventsList();
+        logMessage('Udalosť bola pridaná (ID=' + resp.id + ')');
+      })
+      .catch(err => {
+        logMessage('Chyba: ' + err.message);
+      })
+      .finally(() => setLoading(false));
+  };
+
+  // Odstránenie udalosti
+  function deleteEvent(eventId) {
+    if (!confirm('Naozaj zmazať túto udalosť?')) return;
+    setLoading(true);
+    logMessage('Mazanie udalosti ID=' + eventId);
+
+    fetch('/api/deleteCalendarEvent?id=' + eventId, {
+      method: 'DELETE'
+    })
+      .then(r => {
+        if (!r.ok) {
+          throw new Error('Chyba pri mazaní (status ' + r.status + ')');
+        }
+        // Vyhodíme ju z local array
+        events = events.filter(e => e.id !== eventId);
+        renderEventsList();
+        logMessage('Udalosť bola zmazaná.');
+      })
+      .catch(err => {
+        logMessage('Chyba: ' + err);
+      })
+      .finally(() => setLoading(false));
+  }
+</script>
+</body>
+</html>
